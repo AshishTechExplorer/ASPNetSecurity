@@ -11,20 +11,30 @@ builder.Services.AddAuthentication("MyCookieAuth").AddCookie("MyCookieAuth", opt
     options.Cookie.Name = "MyCookieAuth";
     options.ExpireTimeSpan = TimeSpan.FromSeconds(200);
 });
-
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("IsAdmin", policy => policy.RequireClaim("Admin", "true"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireClaim("Admin"));
     options.AddPolicy("MustBelongToHRDepartment", policy => policy.RequireClaim("Department", "HR"));
-    options.AddPolicy("HRManager", policy =>
-    {
-        policy.RequireClaim("Department", "HR");
-        policy.RequireClaim("Role", "Manager");
-        policy.Requirements.Add(new HrManagerProbationRequerement(3));
-    });
+    options.AddPolicy("HRManagerOnly", policy => policy
+        .RequireClaim("Department", "HR")
+        .RequireClaim("Role", "Manager"));
+    //  .Requirements.Add(new HRManagerProbationRequirement(3)));
 });
 
-builder.Services.AddSingleton<IAuthorizationHandler, HrManagerProbationRequerementHandler>();
+//builder.Services.AddSingleton<IAuthorizationHandler, HRManagerProbationRequirementHandler>();
+
+builder.Services.AddHttpClient("OurWebAPI", client =>
+{
+    client.BaseAddress = new Uri("https://localhost:7166/");
+});
+
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.IdleTimeout = TimeSpan.FromMinutes(20);
+    options.Cookie.IsEssential = true;
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -39,9 +49,11 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseSession();
 
 app.MapRazorPages();
 
